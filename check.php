@@ -37,6 +37,73 @@
             <li><?= $T->dale_chall_difficult_word_count($text) ?> words NOT on the Dale-Chall easy word list</li>
             <li><?= $T->spache_difficult_word_count($text) ?> unique words NOT on the Spache easy word list</li>
         </ul><?
+
+        $long_words = array();
+        $strText = $T->clean_text($text);
+        $intLongWordCount = 0;
+        $intWordCount = $T->word_count($strText);
+        $arrWords = explode(' ', $strText);
+        $arrWords = explode(' ', strtolower(preg_replace('`[^A-za-z\' ]`', '', $strText)));
+        for ($i = 0; $i < $intWordCount; $i++) {
+            if ($T->syllable_count($arrWords[$i]) > 2) {
+                $long_words[] = $T->lower_case($arrWords[$i]);
+            }
+        } ?>
+        
+        <p>Three-syllable words:</p>
+        <blockquote><?= implode(', ', array_unique($long_words)) ?></blockquote><?
+
+        $dale_chall_difficult_words = array();
+        $strText = $T->clean_text($text);
+        $intDifficultWordCount = 0;
+        $arrWords = explode(' ', strtolower(preg_replace('`[^A-za-z\' ]`', '', $strText)));
+        // Fetch Dale-Chall Words
+        $T->fetchDaleChallWordList();
+        for ($i = 0, $intWordCount = count($arrWords); $i < $intWordCount; $i++) {
+            // Single letters are counted as easy
+            if (strlen(trim($arrWords[$i])) < 2) {
+                continue;
+            }
+            if ((!in_array(TextStatistics::pluralise($arrWords[$i]), $T->arrDaleChall)) && (!in_array(TextStatistics::unpluralise($arrWords[$i]), $T->arrDaleChall))) {
+                $dale_chall_difficult_words[] = $T->lower_case($arrWords[$i]);
+            }
+        } ?>
+        
+        <p>Dale-Chall difficult words:</p>
+        <blockquote><?= implode(', ', array_unique($dale_chall_difficult_words)) ?></blockquote><?
+
+        $spache_difficult_words = array();
+        $strText = $T->clean_text($text);
+        $intDifficultWordCount = 0;
+        $arrWords = explode(' ', strtolower(preg_replace('`[^A-za-z\' ]`', '', $strText)));
+        // Fetch Spache Words
+        $wordsCounted = array();
+        $T->fetchSpacheWordList();
+        for ($i = 0, $intWordCount = count($arrWords); $i < $intWordCount; $i++) {
+            // Single letters are counted as easy
+            if (strlen(trim($arrWords[$i])) < 2) {
+                continue;
+            }
+            $singularWord = TextStatistics::unpluralise($arrWords[$i]);
+            if ((!in_array(TextStatistics::pluralise($arrWords[$i]), $T->arrSpache)) && (!in_array($singularWord, $T->arrSpache))) {
+                if (!in_array($singularWord, $wordsCounted)) {
+                    $intDifficultWordCount++;
+                    $wordsCounted[] = $singularWord;
+                    $spache_difficult_words[] = $T->lower_case($arrWords[$i]);
+                }
+            }
+        } ?>
+        
+        <p>Spache difficult words:</p>
+        <blockquote><?= implode(', ', array_unique($spache_difficult_words)) ?></blockquote><?
+        
+        $difficult_words = array_intersect($long_words, $dale_chall_difficult_words, $spache_difficult_words);
+        sort($difficult_words);
+        
+        ?>
+        
+        <p>Difficult words:</p>
+        <blockquote><?= implode(', ', array_unique($difficult_words)) ?></blockquote><?
     }
 
 ?>

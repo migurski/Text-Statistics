@@ -264,7 +264,7 @@ class TextStatistics
      * @param   string  $strText      Text to be transformed
      * @return  string
      */
-    protected function clean_text($strText)
+    function clean_text($strText)
     {
         static $clean = array();
 
@@ -323,7 +323,7 @@ class TextStatistics
      * @param   string  $strText      Text to be transformed
      * @return  string
      */
-    protected function lower_case($strText)
+    function lower_case($strText)
     {
         $strLowerCaseText = '';
         try {
