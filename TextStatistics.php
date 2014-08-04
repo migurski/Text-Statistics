@@ -89,6 +89,131 @@ class TextStatistics
         $this->blnMbstring = extension_loaded('mbstring');
         self::$blnBcmath = extension_loaded('bcmath');
     }
+        
+    /**
+     * Returns an associative array of U.S. grade levels including average.
+     * @param   string  $strText         Text to be checked
+     * @return  array
+     */
+    function grade_levels($strText)
+    {
+        $levels = array(
+            flesch_kincaid => $this->flesch_kincaid_grade_level($strText),
+            gunning_fog => $this->gunning_fog_score($strText),
+            coleman_liau => $this->coleman_liau_index($strText),
+            automated_readability => $this->automated_readability_index($strText),
+            dale_chall => null,
+            average => null
+            );
+        
+        $dale_chall_readability = $this->dale_chall_readability_score($strText);
+        
+        if($dale_chall_readability < 5) {
+            $levels['dale_chall'] = 4;
+
+        } elseif($dale_chall_readability < 6) {
+            $levels['dale_chall'] = 5;
+
+        } elseif($dale_chall_readability < 7) {
+            $levels['dale_chall'] = 7;
+
+        } elseif($dale_chall_readability < 8) {
+            $levels['dale_chall'] = 9;
+
+        } elseif($dale_chall_readability < 9) {
+            $levels['dale_chall'] = 11;
+
+        } elseif($dale_chall_readability < 10) {
+            $levels['dale_chall'] = 13;
+
+        } else {
+            $levels['dale_chall'] = 16;
+        }
+        
+        $levels['average'] = (
+            $levels['flesch_kincaid'] / 5
+            + $levels['gunning_fog'] / 5
+            + $levels['coleman_liau'] / 5
+            + $levels['automated_readability'] / 5
+            + $levels['dale_chall'] / 5
+            );
+        
+        return $levels;
+    }
+    
+    /**
+     * Returns an associative array of difficult words lists.
+     * @param   string  $strText         Text to be checked
+     * @return  array
+     */
+    function difficult_words($strText)
+    {
+        $word_lists = array(
+            three_syllable => array(),
+            dale_chall => array(),
+            spache => array(),
+            difficult => null
+            );
+        
+        $cleanText = $this->clean_text($strText);
+
+        $intLongWordCount = 0;
+        $intWordCount = $this->word_count($cleanText);
+        $arrWords = explode(' ', $cleanText);
+        $arrWords = explode(' ', strtolower(preg_replace('`[^A-za-z\' ]`', '', $cleanText)));
+        for ($i = 0; $i < $intWordCount; $i++) {
+            if ($this->syllable_count($arrWords[$i]) > 2) {
+                $word_lists['three_syllable'][] = $this->lower_case($arrWords[$i]);
+            }
+        }
+
+        $intDifficultWordCount = 0;
+        $arrWords = explode(' ', strtolower(preg_replace('`[^A-za-z\' ]`', '', $cleanText)));
+        // Fetch Dale-Chall Words
+        $this->fetchDaleChallWordList();
+        for ($i = 0, $intWordCount = count($arrWords); $i < $intWordCount; $i++) {
+            // Single letters are counted as easy
+            if (strlen(trim($arrWords[$i])) < 2) {
+                continue;
+            }
+            if ((!in_array(TextStatistics::pluralise($arrWords[$i]), $this->arrDaleChall)) && (!in_array(TextStatistics::unpluralise($arrWords[$i]), $this->arrDaleChall))) {
+                $word_lists['dale_chall'][] = $this->lower_case($arrWords[$i]);
+            }
+        }
+
+        $intDifficultWordCount = 0;
+        $arrWords = explode(' ', strtolower(preg_replace('`[^A-za-z\' ]`', '', $cleanText)));
+        // Fetch Spache Words
+        $wordsCounted = array();
+        $this->fetchSpacheWordList();
+        for ($i = 0, $intWordCount = count($arrWords); $i < $intWordCount; $i++) {
+            // Single letters are counted as easy
+            if (strlen(trim($arrWords[$i])) < 2) {
+                continue;
+            }
+            $singularWord = TextStatistics::unpluralise($arrWords[$i]);
+            if ((!in_array(TextStatistics::pluralise($arrWords[$i]), $this->arrSpache)) && (!in_array($singularWord, $this->arrSpache))) {
+                if (!in_array($singularWord, $wordsCounted)) {
+                    $intDifficultWordCount++;
+                    $wordsCounted[] = $singularWord;
+                    $word_lists['spache'][] = $this->lower_case($arrWords[$i]);
+                }
+            }
+        }
+        
+        $word_lists['difficult'] = array_intersect(
+            $word_lists['three_syllable'],
+            $word_lists['dale_chall'],
+            $word_lists['spache']
+            );
+
+        sort($word_lists['three_syllable']);
+        sort($word_lists['dale_chall']);
+        sort($word_lists['spache']);
+        sort($word_lists['difficult']);
+        
+        return $word_lists;
+    }
 
     /**
      * Gives the Flesch-Kincaid Reading Ease of text entered rounded to one digit
